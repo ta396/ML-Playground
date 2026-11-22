@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ML Playground — Tabular Regression</title>
+<style>
+  :root{
+    --bg:#0a0e14;
+    --bg-2:#0f141c;
+    --panel:#121822;
+    --panel-2:#161e2a;
+    --border:#1f2937;
+    --border-hi:#2b3849;
+    --text:#e6edf3;
+    --muted:#8b97a8;
+    --accent:#39ff14;
+    --accent-2:#00e5ff;
+    --accent-3:#b388ff;
+    --warn:#ffb454;
+    --danger:#ff5c7c;
+    --grid-line:#1a2331;
+    --mono:'JetBrains Mono','Fira Code','SF Mono',Menlo,Consolas,monospace;
+    --sans:'Inter','Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(57,255,20,.06), transparent 60%),
+      radial-gradient(1000px 500px at -10% 110%, rgba(0,229,255,.06), transparent 60%),
+      var(--bg);
+  }
+  ::selection{background:rgba(57,255,20,.25)}
+  /* Top bar */
+  header{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:12px 20px;
+    background:rgba(10,14,20,.85);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  .logo{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:700;font-size:15px;letter-spacing:.5px}
+  .logo .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);animation:pulse 1.8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .logo .accent{color:var(--accent)}
+  .logo .accent2{color:var(--accent-2)}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--muted);padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--panel)}
+  .status{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .status .led{width:8px;height:8px;border-radius:50%;background:var(--muted);transition:.2s}
+  .status.ready .led{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .status.busy .led{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse 1s infinite}
+  .status.done .led{background:var(--accent-2);box-shadow:0 0 8px var(--accent-2)}
+
+  /* Layout */
+  main{
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    gap:14px;
+    padding:16px;
+    max-width:1700px;
+    margin:0 auto;
+  }
+  .col-left{grid-column:span 4}
+  .col-mid{grid-column:span 5}
+  .col-right{grid-column:span 3}
+  @media(max-width:1200px){
+    .col-left,.col-mid,.col-right{grid-column:span 12}
+  }
+
+  .panel{
+    background:linear-gradient(180deg,var(--panel) 0%,var(--bg-2) 100%);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+    margin-bottom:14px;
+    position:relative;
+  }
+  .panel::before{
+    content:"";position:absolute;left:0;top:0;height:2px;width:40px;
+    background:linear-gradient(90deg,var(--accent),transparent);
+    border-radius:10px 0 0 0;
+  }
+  .panel h2{
+    margin:0 0 14px 0;
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel h2 .num{color:var(--accent);font-weight:700}
+  .panel h2 .hint{margin-left:auto;font-size:10px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
+
+  label{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin:10px 0 5px;letter-spacing:.5px;text-transform:uppercase}
+  select,input[type=number],input[type=text]{
+    width:100%;
+    background:var(--bg);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:8px 10px;
+    font-family:var(--mono);
+    font-size:13px;
+    outline:none;
+    transition:.15s;
+  }
+  select:focus,input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(57,255,20,.12)}
+  select option{background:var(--bg)}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:0}
+  .row .shrink{flex:0 0 auto}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:9px 16px;
+    border-radius:6px;
+    border:1px solid var(--border-hi);
+    background:var(--panel-2);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:.5px;
+    cursor:pointer;
+    transition:.15s;
+    text-transform:uppercase;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 12px rgba(57,255,20,.15)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.primary{
+    background:linear-gradient(180deg,rgba(57,255,20,.18),rgba(57,255,20,.06));
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .btn.primary:hover{box-shadow:0 0 18px rgba(57,255,20,.3)}
+  .btn.danger{border-color:var(--danger);color:var(--danger)}
+  .btn.danger:hover{box-shadow:0 0 12px rgba(255,92,124,.2)}
+  .btn.small{padding:5px 10px;font-size:11px}
+
+  /* Dataset picker chips */
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{
+    padding:7px 12px;
+    border:1px solid var(--border);
+    border-radius:20px;
+    background:var(--bg);
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:11px;
+    cursor:pointer;
+    transition:.15s;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+  }
+  .chip:hover{border-color:var(--accent-2);color:var(--text)}
+  .chip.active{border-color:var(--accent);color:var(--accent);background:rgba(57,255,20,.08)}
+
+  /* Feature list */
+  .feat-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto;padding-right:4px}
+  .feat-list::-webkit-scrollbar{width:6px}
+  .feat-list::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:3px}
+  .feat{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:var(--bg);
+    cursor:pointer;
+    transition:.15s;
+  }
+  .feat:hover{border-color:var(--border-hi)}
+  .feat.active{border-color:var(--accent);background:rgba(57,255,20,.06)}
+  .feat .box{
+    width:16px;height:16px;border:1px solid var(--border-hi);border-radius:3px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .feat.active .box{background:var(--accent);border-color:var(--accent)}
+  .feat.active .box::after{content:"✓";color:var(--bg);font-size:11px;font-weight:bold}
+  .feat .name{font-family:var(--mono);font-size:12px;flex:1}
+  .feat .target-tag{
+    font-family:var(--mono);font-size:9px;color:var(--accent-2);
+    border:1px solid var(--accent-2);border-radius:3px;padding:1px 5px;
+    text-transform:uppercase;letter-spacing:.5px;
+  }
+  .feat.target .name{color:var(--accent-2);font-weight:600}
+
+  /* Stats table */
+  .stats-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+  .stats-table th,.stats-table td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+  .stats-table th{color:var(--muted);font-weight:400;text-transform:uppercase;letter-spacing:.5px;font-size:10px}
+  .stats-table td{text-align:right;color:var(--text)}
+  .stats-table td:first-child{text-align:left;color:var(--accent-2)}
+
+  /* Layer builder */
+  .layer{
+    display:flex;align-items:center;gap:8px;
+    padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);
+    margin-bottom:6px;
+  }
+  .layer .ltag{font-family:var(--mono);font-size:10px;color:var(--muted);min-width:50px}
+  .layer input,.layer select{flex:1;padding:5px 8px;font-size:11px}
+  .layer .rm{flex:0 0 auto;width:24px;height:24px;border:none;background:transparent;color:var(--danger);cursor:pointer;font-size:14px;border-radius:4px}
+  .layer .rm:hover{background:rgba(255,92,124,.12)}
+  .layer.io{border-style:dashed;border-color:var(--accent-2);opacity:.85}
+  .layer.io .ltag{color:var(--accent-2)}
+
+  /* Sliders */
+  .slider-row{margin-bottom:12px}
+  .slider-row .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  .slider-row .lbl{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .slider-row .val{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:600}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--border);border-radius:2px;outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 8px rgba(57,255,20,.6);cursor:pointer;border:none;
+  }
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);border:none;cursor:pointer}
+
+  /* Metric cards */
+  .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .metric{
+    padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);
+  }
+  .metric .k{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .metric .v{font-family:var(--mono);font-size:18px;color:var(--accent);font-weight:700;margin-top:2px}
+  .metric.alt .v{color:var(--accent-2)}
+  .metric.warn .v{color:var(--warn)}
+
+  /* Chart container */
+  .chart-wrap{position:relative;height:220px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px}
+  .chart-wrap canvas{max-width:100%}
+
+  /* Progress bar */
+  .progress{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:6px}
+  .progress .bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .2s;box-shadow:0 0 8px rgba(57,255,20,.5)}
+
+  .log{
+    font-family:var(--mono);font-size:11px;color:var(--muted);
+    background:var(--bg);border:1px solid var(--border);border-radius:6px;
+    padding:8px 10px;height:120px;overflow:auto;line-height:1.6;
+  }
+  .log .ok{color:var(--accent)}
+  .log .warn{color:var(--warn)}
+  .log .err{color:var(--danger)}
+  .log .info{color:var(--accent-2)}
+
+  /* Prediction output */
+  .pred-box{
+    text-align:center;padding:18px;
+    border:1px solid var(--accent);border-radius:8px;
+    background:radial-gradient(circle at center,rgba(57,255,20,.08),transparent 70%);
+    margin-bottom:12px;
+  }
+  .pred-box .lbl{font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .pred-box .num{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--accent);margin-top:4px;text-shadow:0 0 18px rgba(57,255,20,.4)}
+  .pred-box .unit{font-size:14px;color:var(--muted)}
+
+  .footer-note{padding:8px 20px 24px;font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center}
+
+  .scrollx{overflow-x:auto}
+  .grid-bg{
+    background-image:
+      linear-gradient(var(--grid-line) 1px,transparent 1px),
+      linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+    background-size:24px 24px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="dot"></span>
+    <span>ML<span class="accent">_</span>PLAYGROUND</span>
+    <span class="tag">tabular · regression · tf.js</span>
+  </div>
+  <div class="status ready" id="status">
+    <span class="led"></span>
+    <span id="statusText">ready</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- LEFT: Data -->
+  <section class="col-left">
+
+    <div class="panel">
+      <h2><span class="num">01</span> Dataset</h2>
+      <div class="chips" id="dsChips"></div>
+      <div style="margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--muted)" id="dsDesc"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="num">02</span> Features &amp; Target</h2>
+      <div class="feat-list" id="featList"></div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)">Click a row to toggle as input feature. The target is fixed per dataset (cyan tag).</div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="num">03</span> Statistics <span class="hint">auto-computed</span></h2>
+      <div class="scrollx">
+        <table class="stats-table" id="statsTable">
+          <thead><tr><th>col</th><th>min</th><th>max</th><th>mean</th><th>std</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="num">04</span> Feature → Target</h2>
+      <label>X axis (feature)</label>
+      <select id="scatterX"></select>
+      <div class="chart-wrap" style="margin-top:10px"><canvas id="scatterChart"></canvas></div>
+    </div>
+
+  </section>
+
+  <!-- MIDDLE: Model + Train -->
+  <section class="col-mid">
+
+    <div class="panel">
+      <h2><span class="num">05</span> Model Architecture</h2>
+      <div id="layers"></div>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn small" id="addLayer">+ Add Layer</button>
+        <button class="btn small" id="resetLayers">Reset</button>
+      </div>
+      <div style="margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--muted)" id="archSummary"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="num">06</span> Hyperparameters</h2>
+      <div class="row">
+        <div>
+          <label>Optimizer</label>
+          <select id="opt">
+            <option value="adam">adam</option>
+            <option value="sgd">sgd</option>
+            <option value="rmsprop">rmsprop</option>
+          </select>
+        </div>
+        <div>
+          <label>Loss</label>
+          <select id="loss">
+            <option value="meanSquaredError">meanSquaredError</option>
+            <option value="meanAbsoluteError">meanAbsoluteError</option>
+            <option value="huberLoss">huberLoss</option>
+          </select>
+        </div>
+      </div>
+      <div class="slider-row" style="margin-top:12px">
+        <div class="top"><span class="lbl">Learning rate</span><span class="val" id="lrVal">0.010</span></div>
+        <input type="range" id="lr" min="-4" max="0" step="0.1" value="-2">
+      </div>
+      <div class="row">
+        <div class="slider-row">
+          <div class="top"><span class="lbl">Epochs</span><span class="val" id="epVal">100</span></div>
+          <input type="range" id="epochs" min="10" max="500" step="10" value="100">
+        </div>
+        <div class="slider-row">
+          <div class="top"><span class="lbl">Batch size</span><span class="val" id="bsVal">32</span></div>
+          <input type="range" id="batchSize" min="4" max="128" step="4" value="32">
+        </div>
+        <div class="slider-row">
+          <div class="top"><span class="lbl">Val split</span><span class="val" id="vsVal">0.20</span></div>
+          <input type="range" id="valSplit" min="0" max="0.5" step="0.05" value="0.2">
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="num">07</span> Train</h2>
+      <div class="row" style="align-items:center">
+        <button class="btn primary" id="trainBtn">▶ Train Model</button>
+        <button class="btn danger" id="stopBtn" disabled>■ Stop</button>
+      </div>
+      <div class="progress"><div class="bar" id="progressBar"></div></div>
+      <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px">
+        <span id="epochLabel">epoch 0 / 0</span>
+        <span id="lossLabel">—</span>
+      </div>
+      <div class="chart-wrap" style="margin-top:10px"><canvas id="lossChart"></canvas></div>
+      <div class="log" id="logBox">// logs will appear here</div>
+    </div>
+
+  </section>
+
+  <!-- RIGHT: Predict + Eval -->
+  <section class="col-right">
+
+    <div class="panel">
+      <h2><span class="num">08</span> Predict</h2>
+      <div id="predictInputs"></div>
+      <button class="btn primary" id="predictBtn" style="width:100%;margin-top:10px" disabled>Predict</button>
+      <div class="pred-box" style="margin-top:14px">
+        <div class="lbl" id="predLabel">predicted</div>
+        <div class="num"><span id="predValue">—</span> <span class="unit" id="predUnit"></span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="num">09</span> Evaluation <span class="hint">test set</span></h2>
+      <div class="metrics">
+        <div class="metric"><div class="k">MSE</div><div class="v" id="mMse">—</div></div>
+        <div class="metric alt"><div class="k">RMSE</div><div class="v" id="mRmse">—</div></div>
+        <div class="metric warn"><div class="k">MAE</div><div class="v" id="mMae">—</div></div>
+        <div class="metric alt"><div class="k">R²</div><div class="v" id="mR2">—</div></div>
+      </div>
+      <label style="margin-top:14px">Predicted vs Actual</label>
+      <div class="chart-wrap"><canvas id="pvChart"></canvas></div>
+    </div>
+
+  </section>
+
+</main>
+
+<div class="footer-note">Runs entirely in your browser · TensorFlow.js + Chart.js · no data leaves your machine</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+   RNG (seeded) so datasets are reproducible
+   ============================================================ */
+function mulberry32(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function gauss(rng, mu=0, sigma=1){
+  // Box-Muller
+  let u=0,v=0; while(u===0)u=rng(); while(v===0)v=rng();
+  return mu + sigma*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function round(v,d=2){const p=Math.pow(10,d);return Math.round(v*p)/p}
+
+/* ============================================================
+   Dataset definitions
+   Each: {name, desc, unit, features:[{name,unit,min,max,int}], target:{name,unit}, gen(rng)->rows }
+   ============================================================ */
+const DATASETS = [
+  {
+    name:"House Prices",
+    desc:"Synthetic California-style housing data. 300 homes.",
+    target:{name:"price",unit:"$"},
+    features:[
+      {name:"sqft",      unit:"ft²", min:600, max:4500, int:true},
+      {name:"bedrooms",  unit:"",    min:1,   max:6,    int:true},
+      {name:"bathrooms", unit:"",    min:1,   max:4,    int:true},
+      {name:"age",       unit:"yrs", min:0,   max:80,   int:true},
+      {name:"garage",    unit:"",    min:0,   max:3,    int:true},
+      {name:"loc_score", unit:"/10", min:1,   max:10,   int:true},
+    ],
+    gen(rng){
+      const rows=[];
+      for(let i=0;i<300;i++){
+        const sqft=Math.round(600+rng()*3900);
+        const bed=1+Math.floor(rng()*6);
+        const bath=1+Math.floor(rng()*4);
+        const age=Math.floor(rng()*80);
+        const garage=Math.floor(rng()*4);
+        const loc=1+Math.floor(rng()*10);
+        // non-linear-ish ground truth
+        const price = 40000
+          + 145*sqft
+          + 11000*bed
+          + 14000*bath
+          - 700*age
+          + 6000*garage
+          + 22000*loc
+          + 18*Math.sqrt(sqft)
+          + gauss(rng,0, 9000);
+        rows.push({sqft,bedrooms:bed,bathrooms:bath,age,garage,loc_score:loc,price:Math.max(30000,price)});
+      }
+      return rows;
+    }
+  },
+  {
+    name:"Auto MPG",
+    desc:"Synthetic fuel economy data. 300 cars.",
+    target:{name:"mpg",unit:"mpg"},
+    features:[
+      {name:"cylinders",   unit:"",   min:3,   max:8,   int:true},
+      {name:"displacement",unit:"cc", min:70,  max:460, int:true},
+      {name:"horsepower",  unit:"hp", min:46,  max:230, int:true},
+      {name:"weight",      unit:"lb", min:1700,max:5200,int:true},
+      {name:"acceleration",unit:"s",  min:8,   max:25,  int:false},
+      {name:"model_year",  unit:"",   min:70,  max:82,  int:true},
+    ],
+    gen(rng){
+      const rows=[];
+      for(let i=0;i<300;i++){
+        const cyl=3+Math.floor(rng()*6);
+        const disp=Math.round(70+rng()*390);
+        const hp=Math.round(46+rng()*184);
+        const wt=Math.round(1700+rng()*3500);
+        const acc=round(8+rng()*17,1);
+        const yr=70+Math.floor(rng()*13);
+        // heavier & more powerful => lower mpg; newer => higher
+        const mpg = 48
+          - 0.0065*wt
+          - 0.035*disp
+          - 0.045*hp
+          + 0.6*acc
+          + 0.55*(yr-70)
+          + gauss(rng,0,1.8);
+        rows.push({cylinders:cyl,displacement:disp,horsepower:hp,weight:wt,acceleration:acc,model_year:yr,mpg:Math.max(8,mpg)});
+      }
+      return rows;
+    }
+  },
+  {
+    name:"Salary",
+    desc:"Synthetic tech-industry salary data. 300 employees.",
+    target:{name:"salary",unit:"$"},
+    features:[
+      {name:"years_exp",     unit:"yrs", min:0,   max:30, int:false},
+      {name:"education_yrs", unit:"yrs", min:12,  max:22, int:true},
+      {name:"age",           unit:"yrs", min:22,  max:65, int:true},
+      {name:"job_level",     unit:"/6",  min:1,   max:6,  int:true},
+      {name:"commute_min",   unit:"min", min:5,   max:90, int:true},
+    ],
+    gen(rng){
+      const rows=[];
+      for(let i=0;i<300;i++){
+        const exp=round(rng()*30,1);
+        const edu=12+Math.floor(rng()*11);
+        const age=22+Math.floor(rng()*44);
+        const lvl=1+Math.floor(rng()*6);
+        const com=5+Math.floor(rng()*86);
+        const salary = 28000
+          + 4200*exp
+          + 2800*(edu-12)
+          + 350*age
+          + 9000*lvl
+          + 800*Math.sqrt(exp)
+          - 30*com
+          + gauss(rng,0,3500);
+        rows.push({years_exp:exp,education_yrs:edu,age,job_level:lvl,commute_min:com,salary:Math.max(20000,salary)});
+      }
+      return rows;
+    }
+  },
+];
+
+/* ============================================================
+   App state
+   ============================================================ */
+const state = {
+  dsIdx:0,
+  rows:[],
+  features:[],   // selected feature names
+  target:"",
+  norm:{},       // {col:{mean,std,min,max}}
+  model:null,
+  stop:false,
+  trained:false,
+  lossChart:null,
+  scatterChart:null,
+  pvChart:null,
+};
+
+/* ============================================================
+   Utilities
+   ============================================================ */
+function $(id){return document.getElementById(id)}
+function setStatus(kind,text){
+  const el=$("status");el.className="status "+kind;
+  $("statusText").textContent=text;
+}
+function log(msg,cls=""){
+  const box=$("logBox");
+  if(box.textContent.indexOf("// logs")===0)box.textContent="";
+  const line=document.createElement("div");if(cls)line.className=cls;
+  line.textContent="> "+msg;box.appendChild(line);box.scrollTop=box.scrollHeight;
+}
+function computeStats(rows,cols){
+  const out={};
+  for(const c of cols){
+    const vals=rows.map(r=>+r[c]);
+    const min=Math.min(...vals),max=Math.max(...vals);
+    const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
+    const variance=vals.reduce((a,b)=>a+(b-mean)*(b-mean),0)/vals.length;
+    const std=Math.sqrt(variance);
+    out[c]={min,max,mean,std};
+  }
+  return out;
+}
+function fmt(v){
+  if(v===null||v===undefined||Number.isNaN(v))return"—";
+  if(Math.abs(v)>=10000)return v.toLocaleString(undefined,{maximumFractionDigits:0});
+  if(Math.abs(v)>=1000)return v.toLocaleString(undefined,{maximumFractionDigits:1});
+  return round(v,3).toString();
+}
+
+/* ============================================================
+   Dataset loading & UI
+   ============================================================ */
+function loadDataset(idx){
+  state.dsIdx=idx;
+  const ds=DATASETS[idx];
+  const rng=mulberry32(42+idx*7);
+  state.rows=ds.gen(rng);
+  state.target=ds.target.name;
+  // default: select first 3 features
+  state.features=ds.features.slice(0,Math.min(3,ds.features.length)).map(f=>f.name);
+  state.norm=computeStats(state.rows, ds.features.map(f=>f.name).concat([ds.target.name]));
+  state.trained=false;state.model=null;
+  $("dsDesc").textContent=ds.desc;
+  renderChips();renderFeatures();renderStats();renderScatterX();
+  buildPredictInputs();updatePredict();updateMetrics(null);
+  setStatus("ready","ready · "+state.rows.length+" rows");
+  log("loaded dataset: "+ds.name+" ("+state.rows.length+" rows, "+ds.features.length+" features)","info");
+  updateArchSummary();
+}
+
+function renderChips(){
+  const wrap=$("dsChips");wrap.innerHTML="";
+  DATASETS.forEach((d,i)=>{
+    const c=document.createElement("div");
+    c.className="chip"+(i===state.dsIdx?" active":"");
+    c.textContent=d.name;
+    c.onclick=()=>loadDataset(i);
+    wrap.appendChild(c);
+  });
+}
+
+function renderFeatures(){
+  const ds=DATASETS[state.dsIdx];
+  const wrap=$("featList");wrap.innerHTML="";
+  ds.features.forEach(f=>{
+    const active=state.features.includes(f.name);
+    const row=document.createElement("div");
+    row.className="feat"+(active?" active":"");
+    row.innerHTML=`<div class="box"></div><div class="name">${f.name}</div>`;
+    row.onclick=()=>{
+      if(active){state.features=state.features.filter(n=>n!==f.name)}
+      else{state.features.push(f.name)}
+      renderFeatures();updateArchSummary();
+      buildPredictInputs();updatePredict();
+    };
+    wrap.appendChild(row);
+  });
+  // target row (fixed)
+  const trow=document.createElement("div");
+  trow.className="feat target";
+  trow.innerHTML=`<div class="box" style="border-color:var(--accent-2);background:rgba(0,229,255,.15)"></div><div class="name">${ds.target.name}</div><div class="target-tag">target</div>`;
+  wrap.appendChild(trow);
+}
+
+function renderStats(){
+  const ds=DATASETS[state.dsIdx];
+  const tb=$("statsTable").querySelector("tbody");tb.innerHTML="";
+  const cols=ds.features.map(f=>f.name).concat([ds.target.name]);
+  for(const c of cols){
+    const s=state.norm[c];
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${c}</td><td>${fmt(s.min)}</td><td>${fmt(s.max)}</td><td>${fmt(s.mean)}</td><td>${fmt(s.std)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+
+function renderScatterX(){
+  const sel=$("scatterX");sel.innerHTML="";
+  const ds=DATASETS[state.dsIdx];
+  state.features.forEach(f=>{
+    const o=document.createElement("option");o.value=f;o.textContent=f;sel.appendChild(o);
+  });
+  if(state.features.length===0){
+    const o=document.createElement("option");o.textContent="(select features first)";sel.appendChild(o);
+  }
+  drawScatter();
+}
+
+/* ============================================================
+   Charts
+   ============================================================ */
+function chartTheme(){
+  return {
+    color:"#8b97a8",
+    grid:{color:"#1a2331"},
+    tick:{font:{family:"JetBrains Mono, monospace",size:10},color:"#8b97a8"},
+    legend:{labels:{font:{family:"JetBrains Mono, monospace",size:10},color:"#8b97a8",boxWidth:12}},
+    tooltip:{backgroundColor:"#0a0e14",borderColor:"#2b3849",borderWidth:1,titleFont:{family:"JetBrains Mono, monospace",size:11},bodyFont:{family:"JetBrains Mono, monospace",size:11}},
+  };
+}
+
+function drawScatter(){
+  const ctx=$("scatterChart");
+  const xCol=$("scatterX").value;
+  if(state.scatterChart){state.scatterChart.destroy()}
+  if(!xCol||state.features.length===0){return}
+  const tCol=state.target;
+  const pts=state.rows.map(r=>({x:+r[xCol],y:+r[tCol]}));
+  state.scatterChart=new Chart(ctx,{
+    type:"scatter",
+    data:{
+      datasets:[{
+        label:`${xCol} → ${tCol}`,
+        data:pts,
+        backgroundColor:"rgba(57,255,20,.35)",
+        borderColor:"rgba(57,255,20,.6)",
+        pointRadius:2,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,labels:chartTheme().legend.labels},
+        tooltip:chartTheme().tooltip,
+      },
+      scales:{
+        x:{title:{display:true,text:xCol,color:"#8b97a8",font:{family:"JetBrains Mono, monospace",size:10}},grid:{color:"#1a2331"},ticks:chartTheme().tick},
+        y:{title:{display:true,text:tCol,color:"#8b97a8",font:{family:"JetBrains Mono, monospace",size:10}},grid:{color:"#1a2331"},ticks:chartTheme().tick},
+      }
+    }
+  });
+}
+
+function initLossChart(){
+  const ctx=$("lossChart");
+  if(state.lossChart){state.lossChart.destroy()}
+  state.lossChart=new Chart(ctx,{
+    type:"line",
+    data:{labels:[],datasets:[
+      {label:"train loss",data:[],borderColor:"#39ff14",backgroundColor:"rgba(57,255,20,.12)",borderWidth:2,pointRadius:0,tension:.25},
+      {label:"val loss",data:[],borderColor:"#00e5ff",backgroundColor:"rgba(0,229,255,.10)",borderWidth:2,pointRadius:0,tension:.25,borderDash:[4,3]},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      animation:false,
+      plugins:{legend:{labels:chartTheme().legend.labels},tooltip:chartTheme().tooltip},
+      scales:{
+        x:{title:{display:true,text:"epoch",color:"#8b97a8",font:{family:"JetBrains Mono, monospace",size:10}},grid:{color:"#1a2331"},ticks:chartTheme().tick},
+        y:{title:{display:true,text:"loss",color:"#8b97a8",font:{family:"JetBrains Mono, monospace",size:10}},grid:{color:"#1a2331"},ticks:chartTheme().tick,type:"logarithmic"},
+      }
+    }
+  });
+}
+
+function drawPVChart(actuals,preds){
+  const ctx=$("pvChart");
+  if(state.pvChart){state.pvChart.destroy()}
+  if(!actuals){return}
+  const min=Math.min(...actuals,...preds),max=Math.max(...actuals,...preds);
+  state.pvChart=new Chart(ctx,{
+    type:"scatter",
+    data:{datasets:[
+      {label:"predictions",data:preds.map((p,i)=>({x:actuals[i],y:p})),backgroundColor:"rgba(57,255,20,.4)",borderColor:"rgba(57,255,20,.7)",pointRadius:3},
+      {label:"ideal y=x",data:[{x:min,y:min},{x:max,y:max}],borderColor:"#b388ff",borderWidth:1.5,borderDash:[5,4],pointRadius:0,type:"line",showLine:true,fill:false},
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:chartTheme().legend.labels},tooltip:chartTheme().tooltip},
+      scales:{
+        x:{title:{display:true,text:"actual",color:"#8b97a8",font:{family:"JetBrains Mono, monospace",size:10}},grid:{color:"#1a2331"},ticks:chartTheme().tick},
+        y:{title:{display:true,text:"predicted",color:"#8b97a8",font:{family:"JetBrains Mono, monospace",size:10}},grid:{color:"#1a2331"},ticks:chartTheme().tick},
+      }
+    }
+  });
+}
+
+/* ============================================================
+   Layer builder
+   ============================================================ */
+function defaultLayers(){
+  return [
+    {units:16,act:"relu"},
+    {units:8,act:"relu"},
+  ];
+}
+let layers=defaultLayers();
+
+function renderLayers(){
+  const wrap=$("layers");wrap.innerHTML="";
+  // input layer (fixed)
+  const inRow=document.createElement("div");
+  inRow.className="layer io";
+  inRow.innerHTML=`<div class="ltag">input</div><div style="flex:1;font-family:var(--mono);font-size:11px;color:var(--accent-2)">${state.features.length} features (normalized)</div>`;
+  wrap.appendChild(inRow);
+  layers.forEach((l,i)=>{
+    const row=document.createElement("div");
+    row.className="layer";
+    row.innerHTML=`
+      <div class="ltag">dense ${i+1}</div>
+      <input type="number" min="1" max="256" value="${l.units}" title="units">
+      <select>
+        <option value="relu">relu</option>
+        <option value="tanh">tanh</option>
+        <option value="sigmoid">sigmoid</option>
+        <option value="linear">linear</option>
+      </select>
+      <button class="rm" title="remove">×</button>
+    `;
+    const unitsInp=row.querySelector("input");
+    const actSel=row.querySelector("select");
+    const rmBtn=row.querySelector(".rm");
+    actSel.value=l.act;
+    unitsInp.onchange=()=>{l.units=Math.max(1,+unitsInp.value||1);updateArchSummary()};
+    actSel.onchange=()=>{l.act=actSel.value;updateArchSummary()};
+    rmBtn.onclick=()=>{layers.splice(i,1);renderLayers();updateArchSummary()};
+    wrap.appendChild(row);
+  });
+  // output layer (fixed)
+  const outRow=document.createElement("div");
+  outRow.className="layer io";
+  outRow.innerHTML=`<div class="ltag">output</div><div style="flex:1;font-family:var(--mono);font-size:11px;color:var(--accent-2)">1 neuron · linear (regression)</div>`;
+  wrap.appendChild(outRow);
+}
+
+function updateArchSummary(){
+  const nFeat=state.features.length;
+  const total=layers.reduce((a,l)=>a+(+l.units||0),0);
+  $("archSummary").textContent=`input ${nFeat} → ${layers.map(l=>l.act+"·"+l.units).join(" → ")} → 1   | hidden neurons: ${total}`;
+}
+
+/* ============================================================
+   Predict inputs
+   ============================================================ */
+const predictVals={};
+
+function buildPredictInputs(){
+  const wrap=$("predictInputs");wrap.innerHTML="";
+  const ds=DATASETS[state.dsIdx];
+  state.features.forEach(fname=>{
+    const f=ds.features.find(x=>x.name===fname);
+    const s=state.norm[fname];
+    const step=f.int?1:(s.max-s.min)/100;
+    const initVal=f.int?Math.round((s.min+s.max)/2):(s.min+s.max)/2;
+    predictVals[fname]=initVal;
+    const row=document.createElement("div");
+    row.className="slider-row";
+    row.innerHTML=`
+      <div class="top"><span class="lbl">${fname} <span style="opacity:.5">(${f.unit})</span></span><span class="val" id="pv_${fname}">${fmt(initVal)}</span></div>
+      <input type="range" id="pr_${fname}" min="${s.min}" max="${s.max}" step="${step}" value="${initVal}">
+    `;
+    wrap.appendChild(row);
+    row.querySelector("input").oninput=e=>{
+      const v=+e.target.value;
+      predictVals[fname]=v;
+      $("pv_"+fname).textContent=fmt(v);
+      updatePredict();
+    };
+  });
+}
+
+/* ============================================================
+   Model build & train
+   ============================================================ */
+function buildModel(){
+  const nFeat=state.features.length;
+  if(nFeat===0){log("no features selected","err");return null}
+  const model=tf.sequential();
+  layers.forEach((l,i)=>{
+    const cfg={units:+l.units||1,activation:l.act};
+    if(i===0){cfg.inputShape=[nFeat]}
+    model.add(tf.layers.dense(cfg));
+  });
+  model.add(tf.layers.dense({units:1,activation:"linear"}));
+  const lr=Math.pow(10,+$("lr").value);
+  const optName=$("opt").value;
+  let opt;
+  if(optName==="adam")opt=tf.train.adam(lr);
+  else if(optName==="sgd")opt=tf.train.sgd(lr);
+  else opt=tf.train.rmsprop(lr);
+  model.compile({optimizer:opt,loss:$("loss").value});
+  return model;
+}
+
+function makeTensors(){
+  const ds=DATASETS[state.dsIdx];
+  const feats=state.features;
+  const tgt=state.target;
+  const X=state.rows.map(r=>feats.map(f=>(+r[f]-state.norm[f].mean)/(state.norm[f].std||1)));
+  const y=state.rows.map(r=>[(+r[tgt]-state.norm[tgt].mean)/(state.norm[tgt].std||1)]);
+  return {
+    xs:tf.tensor2d(X),
+    ys:tf.tensor2d(y),
+  };
+}
+
+async function train(){
+  if(state.features.length===0){log("select at least one feature","err");return}
+  $("trainBtn").disabled=true;$("stopBtn").disabled=false;
+  state.stop=false;
+  setStatus("busy","training…");
+  initLossChart();
+  $("progressBar").style.width="0%";
+  $("epochLabel").textContent="epoch 0 / "+$("epochs").value;
+  $("lossLabel").textContent="—";
+
+  try{
+    if(state.model){state.model.dispose()}
+    state.model=buildModel();
+    if(!state.model)return;
+    log("model built: "+layers.length+" hidden layers","info");
+    log("params: "+state.model.countParams());
+
+    const {xs,ys}=makeTensors();
+    const epochs=+$("epochs").value;
+    const batchSize=+$("batchSize").value;
+    const valSplit=+$("valSplit").value;
+    log("starting training: "+epochs+" epochs, batch "+batchSize+", val "+valSplit,"info");
+
+    await state.model.fit(xs,ys,{
+      epochs,batchSize,validationSplit:valSplit,shuffle:true,
+      callbacks:{
+        onEpochEnd:async (epoch,logs)=>{
+          const tl=logs.loss, vl=logs.val_loss;
+          state.lossChart.data.labels.push(epoch+1);
+          state.lossChart.data.datasets[0].data.push(tl);
+          state.lossChart.data.datasets[1].data.push(vl===undefined?null:vl);
+          state.lossChart.update("none");
+          const pct=Math.round((epoch+1)/epochs*100);
+          $("progressBar").style.width=pct+"%";
+          $("epochLabel").textContent=`epoch ${epoch+1} / ${epochs}`;
+          $("lossLabel").textContent=`train ${fmt(tl)} · val ${vl===undefined?"—":fmt(vl)}`;
+          if(state.stop){state.model.stopTraining=true;log("stopped by user","warn")}
+          await tf.nextFrame();
+        },
+        onTrainEnd:async ()=>{
+          log("training complete","ok");
+          setStatus("done","trained");
+          state.trained=true;
+          $("trainBtn").disabled=false;$("stopBtn").disabled=true;
+          $("predictBtn").disabled=false;
+          await evaluate(xs,ys);
+          xs.dispose();ys.dispose();
+          updatePredict();
+        }
+      }
+    });
+  }catch(e){
+    log("error: "+e.message,"err");
+    setStatus("ready","error");
+    $("trainBtn").disabled=false;$("stopBtn").disabled=true;
+  }
+}
+
+/* ============================================================
+   Evaluation
+   ============================================================ */
+async function evaluate(xs,ys){
+  if(!state.model)return;
+  const ds=DATASETS[state.dsIdx];
+  const tgt=state.target;
+  const tMean=state.norm[tgt].mean,tStd=state.norm[tgt].std||1;
+  // predictions on full dataset (we then split test = last 20%)
+  const preds=tf.tidy(()=>{
+    return state.model.predict(xs);
+  });
+  const predArr=await preds.data();
+  const yArr=await ys.data();
+  preds.dispose();
+  const n=state.rows.length;
+  const testStart=Math.floor(n*(1-0.2));
+  let se=0,ae=0,sse=0;const actuals=[],phat=[];
+  for(let i=testStart;i<n;i++){
+    const pDenorm=predArr[i]*tStd+tMean;
+    const aDenorm=yArr[i]*tStd+tMean;
+    const err=pDenorm-aDenorm;
+    se+=err*err;ae+=Math.abs(err);sse+=err*err;
+    actuals.push(aDenorm);phat.push(pDenorm);
+  }
+  const yMean=actuals.reduce((a,b)=>a+b,0)/actuals.length;
+  let sst=0;for(const a of actuals)sst+=(a-yMean)*(a-yMean);
+  const m=actuals.length;
+  const mse=se/m,rmse=Math.sqrt(mse),mae=ae/m;
+  const r2=sst===0?1:1-sse/sst;
+  $("mMse").textContent=fmt(mse);
+  $("mRmse").textContent=fmt(rmse);
+  $("mMae").textContent=fmt(mae);
+  $("mR2").textContent=fmt(r2);
+  log(`eval: MSE=${fmt(mse)} RMSE=${fmt(rmse)} MAE=${fmt(mae)} R²=${fmt(r2)}`,"ok");
+  drawPVChart(actuals,phat);
+}
+
+function updateMetrics(_){ /* metrics only set by evaluate */ }
+
+/* ============================================================
+   Prediction
+   ============================================================ */
+function updatePredict(){
+  if(!state.trained||!state.model){
+    $("predValue").textContent="—";
+    $("predLabel").textContent="predicted "+state.target;
+    $("predUnit").textContent=DATASETS[state.dsIdx].target.unit;
+    return;
+  }
+  const ds=DATASETS[state.dsIdx];
+  const tgt=state.target;
+  const tMean=state.norm[tgt].mean,tStd=state.norm[tgt].std||1;
+  const input=state.features.map(f=>(predictVals[f]-state.norm[f].mean)/(state.norm[f].std||1));
+  const pred=tf.tidy(()=>{
+    const x=tf.tensor2d([input]);
+    return state.model.predict(x);
+  });
+  pred.data().then(arr=>{
+    const val=arr[0]*tStd+tMean;
+    $("predValue").textContent=fmt(val);
+    $("predLabel").textContent="predicted "+tgt;
+    $("predUnit").textContent=ds.target.unit;
+    pred.dispose();
+  });
+}
+
+/* ============================================================
+   Wire up
+   ============================================================ */
+function wire(){
+  // sliders
+  const bind=(id,disp,fmtFn)=>{const el=$(id);el.oninput=()=>{$(disp).textContent=fmtFn(el.value)}};
+  bind("lr","lrVal",v=>{const n=Math.pow(10,+v);return n>=0.1?n.toFixed(2):n.toExponential(1)});
+  bind("epochs","epVal",v=>v);
+  bind("batchSize","bsVal",v=>v);
+  bind("valSplit","vsVal",v=>(+v).toFixed(2));
+
+  $("addLayer").onclick=()=>{layers.push({units:8,act:"relu"});renderLayers();updateArchSummary()};
+  $("resetLayers").onclick=()=>{layers=defaultLayers();renderLayers();updateArchSummary()};
+
+  $("trainBtn").onclick=()=>train();
+  $("stopBtn").onclick=()=>{state.stop=true;log("stopping after current epoch…","warn")};
+  $("predictBtn").onclick=()=>updatePredict();
+
+  $("scatterX").onchange=()=>drawScatter();
+
+  // initial slider labels (reuse the input handlers)
+  ["lr","epochs","batchSize","valSplit"].forEach(id=>$(id).dispatchEvent(new Event("input")));
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+window.addEventListener("DOMContentLoaded",()=>{
+  log("initializing TensorFlow.js backend…","info");
+  tf.ready().then(()=>{
+    log("backend: "+tf.getBackend(),"ok");
+    initLossChart();
+    renderLayers();
+    wire();
+    loadDataset(0);
+  });
+});
+</script>
+</body>
+</html>
